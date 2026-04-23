@@ -5,10 +5,11 @@ Este repositorio contiene el desarrollo de una plataforma web diseñada para una
 ## 🛠️ Tecnologías utilizadas
 * **Frontend:** React.js
 * **Lenguajes:** HTML5, CSS3 y JavaScript (ES6+)
-* **Estilos:** CSS Modules / Styled Components (opcional según tu uso)
+* **Estilos:** CSS Modules / Styled Components
 
 ## 📋 Características
 * Interfaz responsiva y amigable para el usuario.
 * Catálogo interactivo de productos.
 * Gestión de carrito de compras.
 * Navegación optimizada mediante componentes de React.
+* Funcionalidades llamativas para atraccion al cliente.
