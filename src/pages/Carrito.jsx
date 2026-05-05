@@ -1,24 +1,50 @@
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 import "./Carrito.css";
 
 const METODOS_PAGO = [
-  { id: "tarjeta", label: "Tarjeta de crédito/débito", icon: "💳" },
-  { id: "nequi", label: "Nequi / Daviplata", icon: "📱" },
-  { id: "efectivo", label: "Efectivo en entrega", icon: "💵" },
-  { id: "pse", label: "PSE – Transferencia", icon: "🏦" },
+  { id: "tarjeta",  label: "Tarjeta de crédito/débito", icon: "💳" },
+  { id: "nequi",   label: "Nequi / Daviplata",          icon: "📱" },
+  { id: "efectivo",label: "Efectivo en entrega",         icon: "💵" },
+  { id: "pse",     label: "PSE – Transferencia",         icon: "🏦" },
 ];
+
+function genOrderId() {
+  return `EMP-${Math.floor(Math.random() * 90000 + 10000)}`;
+}
 
 export default function Carrito({ setPage }) {
   const { items, removeItem, updateCantidad, clearCart, total } = useCart();
-  const [step, setStep] = useState("carrito"); // carrito | checkout | confirmado
+  const { user, useCodigo, addPedido } = useAuth();
+
+  const [step, setStep] = useState("carrito");
   const [metodoPago, setMetodoPago] = useState("nequi");
   const [form, setForm] = useState({ nombre: "", telefono: "", direccion: "", ciudad: "", notas: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [orderId, setOrderId] = useState("");
+
+  // Código de descuento
+  const [codigoInput, setCodigoInput] = useState("");
+  const [codigoAplicado, setCodigoAplicado] = useState(null); // { codigo, porcentaje }
+  const [codigoError, setCodigoError] = useState("");
 
   const envio = total > 50000 ? 0 : 4500;
-  const totalFinal = total + envio;
+  const descuento = codigoAplicado ? Math.round(total * codigoAplicado.porcentaje / 100) : 0;
+  const totalFinal = total + envio - descuento;
+
+  const aplicarCodigo = () => {
+    setCodigoError("");
+    const trimmed = codigoInput.trim().toUpperCase();
+    if (!trimmed) { setCodigoError("Ingresa un código"); return; }
+    const found = user?.codigos?.find((c) => c.codigo === trimmed);
+    if (!found) { setCodigoError("Código inválido o no disponible"); return; }
+    setCodigoAplicado(found);
+    setCodigoError("");
+  };
+
+  const quitarCodigo = () => { setCodigoAplicado(null); setCodigoInput(""); setCodigoError(""); };
 
   const validateCheckout = () => {
     const e = {};
@@ -35,27 +61,39 @@ export default function Carrito({ setPage }) {
     setErrors(e);
     if (Object.keys(e).length > 0) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500)); // Simula procesamiento
-    setLoading(false);
+    await new Promise((r) => setTimeout(r, 1500));
+    const id = genOrderId();
+    setOrderId(id);
+    // Guardar pedido en la cuenta del usuario
+    addPedido({
+      id,
+      fecha: new Date().toLocaleDateString("es-CO"),
+      items: items.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, precio: i.precio })),
+      total: totalFinal,
+      descuento: codigoAplicado ? `${codigoAplicado.porcentaje}% (${codigoAplicado.codigo})` : null,
+      direccion: form.direccion,
+      ciudad: form.ciudad,
+    });
+    // Usar y eliminar el código
+    if (codigoAplicado) useCodigo(codigoAplicado.codigo);
     clearCart();
+    setLoading(false);
     setStep("confirmado");
   };
 
+  /* ── CONFIRMADO ── */
   if (step === "confirmado") {
     return (
       <main className="carrito-page">
         <div className="confirmado">
           <div className="confirmado-icon">🎉</div>
           <h2>¡Pedido confirmado!</h2>
-          <p>Tu pedido ha sido recibido. Llegará en aproximadamente <b>30-45 minutos</b>.</p>
-          <div className="confirmado-num">Pedido #EMP-{Math.floor(Math.random() * 90000 + 10000)}</div>
+          <p>Tu pedido llegará en aproximadamente <b>30–45 minutos</b>.</p>
+          <div className="confirmado-num">{orderId}</div>
+          <p className="confirmado-hint">Puedes ver tu historial de compras en <b>Mi Perfil</b>. Cada 2 pedidos ganas un giro de ruleta 🎡</p>
           <div className="confirmado-actions">
-            <button className="btn-primary" onClick={() => { setStep("carrito"); setPage("home"); }}>
-              Volver al inicio
-            </button>
-            <button className="btn-outline" onClick={() => { setStep("carrito"); setPage("catalogo"); }}>
-              Seguir comprando
-            </button>
+            <button className="btn-primary" onClick={() => { setStep("carrito"); setPage("home"); }}>Volver al inicio</button>
+            <button className="btn-outline" onClick={() => { setStep("carrito"); setPage("ruleta"); }}>Ir a la Ruleta 🎡</button>
           </div>
         </div>
       </main>
@@ -67,14 +105,8 @@ export default function Carrito({ setPage }) {
       {/* Steps */}
       <div className="steps-bar">
         <div className="steps-inner">
-          {[
-            { id: "carrito", label: "Carrito", num: 1 },
-            { id: "checkout", label: "Datos de envío", num: 2 },
-          ].map((s) => (
-            <div
-              key={s.id}
-              className={`step ${step === s.id ? "active" : ""} ${step === "checkout" && s.id === "carrito" ? "done" : ""}`}
-            >
+          {[{ id: "carrito", label: "Carrito", num: 1 }, { id: "checkout", label: "Datos de envío", num: 2 }].map((s) => (
+            <div key={s.id} className={`step ${step === s.id ? "active" : ""} ${step === "checkout" && s.id === "carrito" ? "done" : ""}`}>
               <span className="step-num">{step === "checkout" && s.id === "carrito" ? "✓" : s.num}</span>
               <span className="step-label">{s.label}</span>
             </div>
@@ -88,24 +120,19 @@ export default function Carrito({ setPage }) {
           <div className="carrito-layout">
             <div className="carrito-items">
               <div className="carrito-header">
-                <h2 className="section-title" style={{ fontSize: "1.8rem" }}>
-                  Tu <span>carrito</span>
-                </h2>
-                {items.length > 0 && (
-                  <button className="clear-btn" onClick={clearCart}>
-                    🗑 Vaciar carrito
-                  </button>
-                )}
+                <h2 className="section-title" style={{ fontSize: "1.8rem" }}>Tu <span>carrito</span></h2>
+                {items.length > 0 && <button className="clear-btn" onClick={clearCart}>🗑 Vaciar</button>}
               </div>
 
               {items.length === 0 ? (
                 <div className="empty-cart">
                   <span>🫙</span>
                   <h3>Tu carrito está vacío</h3>
-                  <p>Agrega empanadas desde nuestro catálogo y disfruta del mejor sabor colombiano.</p>
-                  <button className="btn-primary" onClick={() => setPage("catalogo")}>
-                    Ver catálogo
-                  </button>
+                  <p>Agrega empanadas desde nuestro catálogo o crea la tuya.</p>
+                  <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+                    <button className="btn-primary" onClick={() => setPage("catalogo")}>Ver catálogo</button>
+                    <button className="btn-outline" onClick={() => setPage("creador")}>Crear empanada 🎨</button>
+                  </div>
                 </div>
               ) : (
                 <div className="items-list">
@@ -121,9 +148,7 @@ export default function Carrito({ setPage }) {
                         <span className="qty-val">{item.cantidad}</span>
                         <button className="qty-btn" onClick={() => updateCantidad(item.id, item.cantidad + 1)}>+</button>
                       </div>
-                      <div className="ci-subtotal">
-                        ${(item.precio * item.cantidad).toLocaleString("es-CO")}
-                      </div>
+                      <div className="ci-subtotal">${(item.precio * item.cantidad).toLocaleString("es-CO")}</div>
                       <button className="ci-remove" onClick={() => removeItem(item.id)}>✕</button>
                     </div>
                   ))}
@@ -133,28 +158,15 @@ export default function Carrito({ setPage }) {
 
             {items.length > 0 && (
               <div className="order-summary">
-                <h3>Resumen del pedido</h3>
+                <h3>Resumen</h3>
                 <div className="summary-lines">
-                  <div className="summary-line">
-                    <span>Subtotal ({items.reduce((s, i) => s + i.cantidad, 0)} items)</span>
-                    <span>${total.toLocaleString("es-CO")}</span>
-                  </div>
-                  <div className="summary-line">
-                    <span>Domicilio</span>
-                    <span className={envio === 0 ? "free" : ""}>{envio === 0 ? "¡Gratis!" : `$${envio.toLocaleString("es-CO")}`}</span>
-                  </div>
-                  {total < 50000 && (
-                    <div className="free-shipping-hint">
-                      🚴 Te faltan ${(50000 - total).toLocaleString("es-CO")} para domicilio gratis
-                    </div>
-                  )}
+                  <div className="summary-line"><span>Subtotal ({items.reduce((s, i) => s + i.cantidad, 0)} items)</span><span>${total.toLocaleString("es-CO")}</span></div>
+                  <div className="summary-line"><span>Domicilio</span><span className={envio === 0 ? "free" : ""}>{envio === 0 ? "¡Gratis!" : `$${envio.toLocaleString("es-CO")}`}</span></div>
+                  {total < 50000 && <div className="free-shipping-hint">🚴 Faltan ${(50000 - total).toLocaleString("es-CO")} para domicilio gratis</div>}
                   <div className="summary-divider" />
-                  <div className="summary-line total">
-                    <span>Total</span>
-                    <span>${totalFinal.toLocaleString("es-CO")}</span>
-                  </div>
+                  <div className="summary-line total"><span>Total</span><span>${(total + envio).toLocaleString("es-CO")}</span></div>
                 </div>
-                <button className="btn-primary" style={{ width: "100%", padding: "16px" }} onClick={() => setStep("checkout")}>
+                <button className="btn-primary" style={{ width: "100%", padding: "15px" }} onClick={() => setStep("checkout")}>
                   Continuar con el pago →
                 </button>
                 <button className="btn-outline" style={{ width: "100%", marginTop: 10 }} onClick={() => setPage("catalogo")}>
@@ -169,16 +181,14 @@ export default function Carrito({ setPage }) {
         {step === "checkout" && (
           <div className="carrito-layout">
             <div className="checkout-form">
-              <h2 className="section-title" style={{ fontSize: "1.8rem" }}>
-                Datos de <span>envío</span>
-              </h2>
+              <h2 className="section-title" style={{ fontSize: "1.8rem" }}>Datos de <span>envío</span></h2>
 
               <div className="checkout-fields">
                 {[
-                  { name: "nombre", label: "Nombre completo", placeholder: "Tu nombre" },
-                  { name: "telefono", label: "Número de celular", placeholder: "300 000 0000" },
-                  { name: "direccion", label: "Dirección de entrega", placeholder: "Cra 43A #1-50, Apto 301" },
-                  { name: "ciudad", label: "Ciudad", placeholder: "Medellín" },
+                  { name: "nombre",    label: "Nombre completo",      placeholder: "Tu nombre" },
+                  { name: "telefono",  label: "Celular",               placeholder: "300 000 0000" },
+                  { name: "direccion", label: "Dirección de entrega",  placeholder: "Cra 43A #1-50, Apto 301" },
+                  { name: "ciudad",    label: "Ciudad",                placeholder: "Medellín" },
                 ].map((f) => (
                   <div className="field" key={f.name}>
                     <label className="field-label">{f.label}</label>
@@ -187,25 +197,53 @@ export default function Carrito({ setPage }) {
                       className={`field-input ${errors[f.name] ? "error" : ""}`}
                       placeholder={f.placeholder}
                       value={form[f.name]}
-                      onChange={(e) => {
-                        setForm((prev) => ({ ...prev, [f.name]: e.target.value }));
-                        setErrors((prev) => ({ ...prev, [f.name]: "" }));
-                      }}
+                      onChange={(e) => { setForm((p) => ({ ...p, [f.name]: e.target.value })); setErrors((p) => ({ ...p, [f.name]: "" })); }}
                     />
                     {errors[f.name] && <span className="field-error">⚠ {errors[f.name]}</span>}
                   </div>
                 ))}
                 <div className="field">
                   <label className="field-label">Notas adicionales (opcional)</label>
-                  <textarea
-                    className="field-input"
-                    placeholder="Ej: Timbre dañado, llamar al llegar..."
-                    rows={3}
-                    value={form.notas}
-                    onChange={(e) => setForm((p) => ({ ...p, notas: e.target.value }))}
-                    style={{ resize: "vertical" }}
-                  />
+                  <textarea className="field-input" placeholder="Ej: Timbre dañado, llamar al llegar..." rows={2} value={form.notas} onChange={(e) => setForm((p) => ({ ...p, notas: e.target.value }))} style={{ resize: "vertical" }} />
                 </div>
+              </div>
+
+              {/* ── CÓDIGO DE DESCUENTO ── */}
+              <div className="descuento-section">
+                <h3>Código de descuento</h3>
+                {codigoAplicado ? (
+                  <div className="codigo-aplicado">
+                    <span>✅ <b>{codigoAplicado.codigo}</b> — {codigoAplicado.porcentaje}% de descuento aplicado</span>
+                    <button className="quitar-codigo" onClick={quitarCodigo}>✕ Quitar</button>
+                  </div>
+                ) : (
+                  <div className="codigo-input-wrap">
+                    <input
+                      type="text"
+                      className="field-input codigo-input"
+                      placeholder="EMP10-XXXXX"
+                      value={codigoInput}
+                      onChange={(e) => { setCodigoInput(e.target.value.toUpperCase()); setCodigoError(""); }}
+                      onKeyDown={(e) => e.key === "Enter" && aplicarCodigo()}
+                    />
+                    <button className="btn-outline" onClick={aplicarCodigo} style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
+                      Aplicar
+                    </button>
+                  </div>
+                )}
+                {codigoError && <span className="field-error">⚠ {codigoError}</span>}
+                {user?.codigos?.length > 0 && !codigoAplicado && (
+                  <div className="codigos-disponibles">
+                    <small>Tus códigos disponibles:</small>
+                    <div className="codigos-chips">
+                      {user.codigos.map((c) => (
+                        <button key={c.codigo} className="codigo-chip" onClick={() => { setCodigoInput(c.codigo); }}>
+                          {c.codigo} ({c.porcentaje}%)
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Método de pago */}
@@ -214,14 +252,7 @@ export default function Carrito({ setPage }) {
                 <div className="metodos-pago">
                   {METODOS_PAGO.map((m) => (
                     <label key={m.id} className={`metodo-card ${metodoPago === m.id ? "selected" : ""}`}>
-                      <input
-                        type="radio"
-                        name="pago"
-                        value={m.id}
-                        checked={metodoPago === m.id}
-                        onChange={() => setMetodoPago(m.id)}
-                        style={{ display: "none" }}
-                      />
+                      <input type="radio" name="pago" value={m.id} checked={metodoPago === m.id} onChange={() => setMetodoPago(m.id)} style={{ display: "none" }} />
                       <span className="metodo-icon">{m.icon}</span>
                       <span className="metodo-label">{m.label}</span>
                       {metodoPago === m.id && <span className="metodo-check">✓</span>}
@@ -231,16 +262,9 @@ export default function Carrito({ setPage }) {
               </div>
 
               <div className="checkout-btns">
-                <button className="btn-outline" onClick={() => setStep("carrito")}>
-                  ← Volver
-                </button>
-                <button
-                  className="btn-primary"
-                  style={{ flex: 1, padding: "16px" }}
-                  onClick={handlePedido}
-                  disabled={loading}
-                >
-                  {loading ? "⏳ Procesando..." : `Confirmar pedido · $${totalFinal.toLocaleString("es-CO")}`}
+                <button className="btn-outline" onClick={() => setStep("carrito")}>← Volver</button>
+                <button className="btn-primary" style={{ flex: 1, padding: "16px" }} onClick={handlePedido} disabled={loading}>
+                  {loading ? "⏳ Procesando..." : `Confirmar · $${totalFinal.toLocaleString("es-CO")}`}
                 </button>
               </div>
             </div>
@@ -252,10 +276,7 @@ export default function Carrito({ setPage }) {
                 {items.map((i) => (
                   <div key={i.id} className="mini-item">
                     <img src={i.imagen} alt={i.nombre} />
-                    <div>
-                      <b>{i.nombre}</b>
-                      <small>x{i.cantidad} · ${(i.precio * i.cantidad).toLocaleString("es-CO")}</small>
-                    </div>
+                    <div><b>{i.nombre}</b><small>x{i.cantidad} · ${(i.precio * i.cantidad).toLocaleString("es-CO")}</small></div>
                   </div>
                 ))}
               </div>
@@ -263,6 +284,12 @@ export default function Carrito({ setPage }) {
               <div className="summary-lines">
                 <div className="summary-line"><span>Subtotal</span><span>${total.toLocaleString("es-CO")}</span></div>
                 <div className="summary-line"><span>Domicilio</span><span className={envio === 0 ? "free" : ""}>{envio === 0 ? "¡Gratis!" : `$${envio.toLocaleString("es-CO")}`}</span></div>
+                {codigoAplicado && (
+                  <div className="summary-line" style={{ color: "#2ECC71" }}>
+                    <span>Descuento {codigoAplicado.porcentaje}%</span>
+                    <span>−${descuento.toLocaleString("es-CO")}</span>
+                  </div>
+                )}
                 <div className="summary-divider" />
                 <div className="summary-line total"><span>Total</span><span>${totalFinal.toLocaleString("es-CO")}</span></div>
               </div>
