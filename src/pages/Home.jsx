@@ -1,10 +1,9 @@
 import { useCart } from "../context/CartContext";
 import { productos } from "../data/productos";
+import Logo from "../components/Logo";
 import "./Home.css";
 
-const MAS_VENDIDAS = productos.filter((p) =>
-  [1, 2, 7, 10].includes(p.id)
-);
+const MAS_VENDIDAS = productos.filter((p) => [1, 2, 7, 10].includes(p.id));
 
 export default function Home({ setPage }) {
   const { addItem } = useCart();
@@ -22,24 +21,16 @@ export default function Home({ setPage }) {
             en tu mesa
           </h1>
           <p className="hero-subtitle">
-            Empanadas artesanales hechas con masa de maíz criollo, rellenos caseros
-            y el amor de tres generaciones. Cada bocado cuenta una historia.
+            Empanadas artesanales hechas con masa de maíz criollo, rellenos caseros y el amor de tres generaciones.
           </p>
           <div className="hero-cta">
-            <button className="btn-primary" onClick={() => setPage("catalogo")}>
-              Ver catálogo completo
-            </button>
-            <button className="btn-outline" onClick={() => document.getElementById("quienes").scrollIntoView({ behavior:"smooth" })}>
+            <button className="btn-primary" onClick={() => setPage("catalogo")}>Ver catálogo completo</button>
+            <button className="btn-outline" onClick={() => document.getElementById("quienes")?.scrollIntoView({ behavior: "smooth" })}>
               Nuestra historia
             </button>
           </div>
-
           <div className="hero-stats">
-            {[
-              { num: "+25", label: "Variedades" },
-              { num: "26", label: "Años de tradición" },
-              { num: "4.9★", label: "Calificación" },
-            ].map((s) => (
+            {[{ num: "+25", label: "Variedades" }, { num: "26", label: "Años de tradición" }, { num: "4.9★", label: "Calificación" }].map((s) => (
               <div className="stat" key={s.label}>
                 <span className="stat-num">{s.num}</span>
                 <span className="stat-label">{s.label}</span>
@@ -50,17 +41,10 @@ export default function Home({ setPage }) {
 
         <div className="hero-visual">
           <div className="hero-img-wrap">
-            <img
-              src="https://images.unsplash.com/photo-1604467794349-0b74285de7e7?w=600&q=80"
-              alt="Empanadas colombianas"
-              className="hero-img"
-            />
+            <img src="https://images.unsplash.com/photo-1604467794349-0b74285de7e7?w=600&q=80" alt="Empanadas colombianas" className="hero-img" />
             <div className="hero-float-card">
               <span>🔥</span>
-              <div>
-                <b>Recién horneadas</b>
-                <small>Listas en 20 min</small>
-              </div>
+              <div><b>Recién horneadas</b><small>Listas en 20 min</small></div>
             </div>
           </div>
         </div>
@@ -74,13 +58,7 @@ export default function Home({ setPage }) {
             <div className="gold-divider" />
             <h2 className="section-title">Tradición que<br /><span>sabe a hogar</span></h2>
             <p className="section-subtitle">
-              Desde 1998, la familia Ospina ha mantenido viva la receta original de las
-              empanadas del Valle del Cauca. Usamos masa de maíz pilado a mano, ingredientes
-              locales y el mismo fogón de siempre — ahora en el corazón de Medellín.
-            </p>
-            <p className="section-subtitle" style={{ marginTop: 12 }}>
-              Hoy somos más de 20 personas con la misma misión: que cada empanada lleve
-              el calor de la tradición colombiana a tu mesa.
+              Desde 1998, la familia Ospina ha mantenido viva la receta original de las empanadas del Valle del Cauca.
             </p>
             <div className="valores">
               {[
@@ -90,25 +68,14 @@ export default function Home({ setPage }) {
               ].map((v) => (
                 <div className="valor" key={v.title}>
                   <span className="valor-icon">{v.icon}</span>
-                  <div>
-                    <b>{v.title}</b>
-                    <small>{v.desc}</small>
-                  </div>
+                  <div><b>{v.title}</b><small>{v.desc}</small></div>
                 </div>
               ))}
             </div>
           </div>
           <div className="quienes-imgs">
-            <img
-              src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80"
-              alt="Cocina"
-              className="q-img q-img-big"
-            />
-            <img
-              src="https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300&q=80"
-              alt="Empanadas"
-              className="q-img q-img-sm"
-            />
+            <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80" alt="Cocina" className="q-img q-img-big" />
+            <img src="https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300&q=80" alt="Empanadas" className="q-img q-img-sm" />
           </div>
         </div>
       </section>
@@ -126,9 +93,7 @@ export default function Home({ setPage }) {
               <div className="mv-card" key={p.id}>
                 <div className="mv-img-wrap">
                   <img src={p.imagen} alt={p.nombre} className="mv-img" />
-                  {p.badge && (
-                    <span className={`badge badge-${p.badgeType} mv-badge`}>{p.badge}</span>
-                  )}
+                  {p.badge && <span className={`badge badge-${p.badgeType} mv-badge`}>{p.badge}</span>}
                 </div>
                 <div className="mv-body">
                   <h3 className="mv-name">{p.nombre}</h3>
@@ -153,9 +118,8 @@ export default function Home({ setPage }) {
       <footer className="footer">
         <div className="footer-inner">
           <div className="footer-brand">
-            <span style={{ fontSize: "2rem" }}>🫓</span>
-            <h3>La <em>Empanadería</em></h3>
-            <p>El sabor que Colombia pone en tu mesa</p>
+            <Logo size="footer" />
+            <p style={{ marginTop: 8 }}>El sabor que Colombia pone en tu mesa</p>
           </div>
           <div className="footer-col">
             <b>Contacto</b>
