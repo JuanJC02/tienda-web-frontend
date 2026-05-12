@@ -230,12 +230,13 @@ export default function Login({ setPage }) {
               : "Enviar enlace"}
           </button>
 
+{/*
           <div className="divider-or"><span>o continúa con</span></div>
           <div className="social-auth">
             {["🌐 Google", "📘 Facebook"].map((s) => (
               <button key={s} className="social-auth-btn">{s}</button>
             ))}
-          </div>
+          </div> */}
 
           <p className="auth-switch">
             {mode === "login" ? "¿No tienes cuenta? " : "¿Ya tienes cuenta? "}

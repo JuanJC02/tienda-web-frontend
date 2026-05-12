@@ -8,9 +8,11 @@ import Ruleta from "./pages/Ruleta";
 import Perfil from "./pages/Perfil";
 import Galeria from "./pages/Galeria";
 import CreadorEmpanada from "./pages/CreadorEmpanada";
+import Admin from "./pages/Admin";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GaleriaProvider } from "./context/GaleriaContext";
+import { ProductosProvider } from "./context/ProductosContext";
 import "./index.css";
 
 function AppInner() {
@@ -23,6 +25,8 @@ function AppInner() {
 
   const navigate = (newPage) => {
     if (!user && newPage !== "login") return;
+    // Solo admins pueden ir a admin
+    if (newPage === "admin" && user?.rol !== "administrador") return;
     setPage(newPage);
   };
 
@@ -37,6 +41,7 @@ function AppInner() {
       {page === "perfil"   && <Perfil setPage={navigate} />}
       {page === "galeria"  && <Galeria />}
       {page === "creador"  && <CreadorEmpanada />}
+      {page === "admin"    && user?.rol === "administrador" && <Admin setPage={navigate} />}
     </div>
   );
 }
@@ -44,11 +49,13 @@ function AppInner() {
 export default function App() {
   return (
     <AuthProvider>
-      <CartProvider>
-        <GaleriaProvider>
-          <AppInner />
-        </GaleriaProvider>
-      </CartProvider>
+      <ProductosProvider>
+        <CartProvider>
+          <GaleriaProvider>
+            <AppInner />
+          </GaleriaProvider>
+        </CartProvider>
+      </ProductosProvider>
     </AuthProvider>
   );
 }

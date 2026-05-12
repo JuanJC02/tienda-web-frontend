@@ -12,8 +12,8 @@ const NAV_MAIN = [
 ];
 
 const NAV_ICONS = [
-  { id: "ruleta",  label: "Ruleta",  icon: "🎡" },
-  { id: "perfil",  label: "Mi Perfil", icon: "👤" },
+  { id: "ruleta", label: "Ruleta",    icon: "🎡" },
+  { id: "perfil", label: "Mi Perfil", icon: "👤" },
 ];
 
 export default function Navbar({ currentPage, setPage }) {
@@ -22,6 +22,7 @@ export default function Navbar({ currentPage, setPage }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const nav = (page) => { setPage(page); setMenuOpen(false); };
+  const isAdmin = user?.rol === "administrador";
 
   return (
     <nav className="navbar">
@@ -43,7 +44,18 @@ export default function Navbar({ currentPage, setPage }) {
               </button>
             </li>
           ))}
-          {/* Mobile-only icon links */}
+          {/* Admin link solo para administradores */}
+          {isAdmin && (
+            <li>
+              <button
+                className={`nav-link nav-link-admin ${currentPage === "admin" ? "active" : ""}`}
+                onClick={() => nav("admin")}
+              >
+                ⚙️ Admin
+              </button>
+            </li>
+          )}
+          {/* Mobile icon links */}
           {NAV_ICONS.map((item) => (
             <li key={item.id} className="mobile-only">
               <button
@@ -58,7 +70,6 @@ export default function Navbar({ currentPage, setPage }) {
 
         {/* Right section */}
         <div className="nav-right">
-          {/* Icon nav buttons (desktop) */}
           {NAV_ICONS.map((item) => (
             <button
               key={item.id}
@@ -71,7 +82,6 @@ export default function Navbar({ currentPage, setPage }) {
             </button>
           ))}
 
-          {/* Cart */}
           <button className="cart-btn" onClick={() => nav("carrito")}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
@@ -81,15 +91,14 @@ export default function Navbar({ currentPage, setPage }) {
             {totalItems > 0 && <span className="cart-badge">{totalItems}</span>}
           </button>
 
-          {/* User */}
           {user && (
             <div className="nav-user">
+              {isAdmin && <span className="admin-chip">Admin</span>}
               <span className="nav-user-name">Hola, {user.nombre.split(" ")[0]}</span>
               <button className="btn-outline-sm" onClick={logout}>Salir</button>
             </div>
           )}
 
-          {/* Hamburger */}
           <button className={`hamburger ${menuOpen ? "open" : ""}`} onClick={() => setMenuOpen(!menuOpen)}>
             <span /><span /><span />
           </button>

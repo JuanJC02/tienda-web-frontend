@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { productos } from "../data/productos";
+import { useProductos } from "../context/ProductosContext";
 import { useCart } from "../context/CartContext";
 import "./Catalogo.css";
 
 const CATEGORIAS = [
-  { id: "todas", label: "Todas", icon: "🫓" },
-  { id: "saladas", label: "Saladas", icon: "🧅" },
-  { id: "dulces", label: "Dulces", icon: "🍯" },
-  { id: "especiales", label: "Especiales", icon: "✨" },
+  { id: "todas",     label: "Todas",     icon: "🫓" },
+  { id: "saladas",   label: "Saladas",   icon: "🧅" },
+  { id: "dulces",    label: "Dulces",    icon: "🍯" },
+  { id: "especiales",label: "Especiales",icon: "✨" },
 ];
 
 export default function Catalogo() {
+  const { productos } = useProductos();
   const [categoria, setCategoria] = useState("todas");
   const [toast, setToast] = useState(null);
   const { addItem } = useCart();
@@ -28,22 +29,18 @@ export default function Catalogo() {
 
   return (
     <main className="catalogo">
-      {/* Header */}
       <div className="catalogo-header">
         <div className="catalogo-header-inner">
           <span className="badge badge-gold">Nuestro menú</span>
           <div className="gold-divider" />
-          <h1 className="section-title">
-            Catálogo de <span>Empanadas</span>
-          </h1>
+          <h1 className="section-title">Catálogo de <span>Empanadas</span></h1>
           <p className="section-subtitle">
-            Más de 12 variedades artesanales. Todas hechas con masa de maíz criollo
+            {productos.length} variedades artesanales. Todas hechas con masa de maíz criollo
             y rellenos preparados diariamente.
           </p>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="filters-bar">
         <div className="filters-inner">
           {CATEGORIAS.map((c) => (
@@ -64,26 +61,17 @@ export default function Catalogo() {
         </div>
       </div>
 
-      {/* Grid */}
       <div className="catalogo-body">
         <div className="productos-grid">
           {filtered.map((p, i) => (
-            <div
-              className="producto-card"
-              key={p.id}
-              style={{ animationDelay: `${i * 0.06}s` }}
-            >
+            <div className="producto-card" key={p.id} style={{ animationDelay: `${i * 0.06}s` }}>
               <div className="prod-img-wrap">
                 <img src={p.imagen} alt={p.nombre} className="prod-img" />
                 <div className="prod-overlay">
-                  <button className="quick-add" onClick={() => handleAdd(p)}>
-                    + Agregar
-                  </button>
+                  <button className="quick-add" onClick={() => handleAdd(p)}>+ Agregar</button>
                 </div>
                 {p.badge && (
-                  <span className={`badge badge-${p.badgeType} prod-badge`}>
-                    {p.badge}
-                  </span>
+                  <span className={`badge badge-${p.badgeType} prod-badge`}>{p.badge}</span>
                 )}
               </div>
               <div className="prod-body">
@@ -96,9 +84,7 @@ export default function Catalogo() {
                 <div className="prod-footer">
                   <div className="prod-price">
                     <span className="price-label">Precio unidad</span>
-                    <span className="price-val">
-                      ${p.precio.toLocaleString("es-CO")}
-                    </span>
+                    <span className="price-val">${p.precio.toLocaleString("es-CO")}</span>
                   </div>
                   <button className="btn-primary prod-btn" onClick={() => handleAdd(p)}>
                     🛒 Agregar
@@ -110,7 +96,6 @@ export default function Catalogo() {
         </div>
       </div>
 
-      {/* Toast notification */}
       {toast && (
         <div className="toast">
           ✅ <strong>{toast}</strong> agregada al carrito

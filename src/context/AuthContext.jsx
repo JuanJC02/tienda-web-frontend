@@ -8,6 +8,7 @@ const INITIAL_USERS = [
     nombre: "Usuario Demo",
     email: "demo@empanaderia.com",
     password: "demo123",
+    rol: "administrador",
     pedidos: [],
     codigos: [],
     spinsAvailable: 1,
@@ -32,6 +33,7 @@ export function AuthProvider({ children }) {
       nombre: nombre.trim(),
       email: email.trim().toLowerCase(),
       password,
+      rol: "cliente",
       pedidos: [],
       codigos: [],
       spinsAvailable: 1,
@@ -47,9 +49,7 @@ export function AuthProvider({ children }) {
       return { ok: false, error: `Cuenta bloqueada. Intenta en ${seg}s.`, bloqueado: true };
     }
     const found = users.find(
-      (u) =>
-        u.email.toLowerCase() === email.trim().toLowerCase() &&
-        u.password === password
+      (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
     );
     if (found) {
       setCurrentUserId(found.id);
@@ -69,6 +69,37 @@ export function AuthProvider({ children }) {
 
   const logout = () => { setCurrentUserId(null); setIntentos(0); };
 
+  /* ── Admin: gestión de usuarios ── */
+  const adminCreateUser = (datos) => {
+    if (users.find((u) => u.email.toLowerCase() === datos.email.trim().toLowerCase())) {
+      return { ok: false, error: "Ese correo ya existe." };
+    }
+    const newUser = {
+      id: Date.now(),
+      nombre: datos.nombre.trim(),
+      email: datos.email.trim().toLowerCase(),
+      password: datos.password,
+      rol: datos.rol || "cliente",
+      pedidos: [],
+      codigos: [],
+      spinsAvailable: 1,
+      lastSpinTime: null,
+    };
+    setUsers((prev) => [...prev, newUser]);
+    return { ok: true };
+  };
+
+  const adminUpdateUser = (id, datos) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, ...datos } : u))
+    );
+  };
+
+  const adminDeleteUser = (id) => {
+    setUsers((prev) => prev.filter((u) => u.id !== id));
+  };
+
+  /* ── Pedidos ── */
   const addPedido = (pedido) => {
     setUsers((prev) =>
       prev.map((u) => {
@@ -83,13 +114,13 @@ export function AuthProvider({ children }) {
 
   const addCodigo = (codigo) => {
     setUsers((prev) =>
-      prev.map((u) => u.id === currentUserId ? { ...u, codigos: [...u.codigos, codigo] } : u)
+      prev.map((u) => (u.id === currentUserId ? { ...u, codigos: [...u.codigos, codigo] } : u))
     );
   };
 
   const addCodigoToUser = (userId, codigo) => {
     setUsers((prev) =>
-      prev.map((u) => u.id === userId ? { ...u, codigos: [...u.codigos, codigo] } : u)
+      prev.map((u) => (u.id === userId ? { ...u, codigos: [...u.codigos, codigo] } : u))
     );
   };
 
@@ -115,7 +146,13 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, users, register, login, logout, addPedido, addCodigo, addCodigoToUser, useCodigo, useSpin, intentos, bloqueadoHasta }}
+      value={{
+        user, users,
+        register, login, logout,
+        adminCreateUser, adminUpdateUser, adminDeleteUser,
+        addPedido, addCodigo, addCodigoToUser, useCodigo, useSpin,
+        intentos, bloqueadoHasta,
+      }}
     >
       {children}
     </AuthContext.Provider>
