@@ -1,7 +1,7 @@
 import "./Logo.css";
 
 // Reemplaza este src con tu imagen de logo personalizada
-const LOGO_IMG = "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80";
+const LOGO_IMG = "https://www.shutterstock.com/image-vector/empanada-logo-vector-illustration-template-260nw-2507117153.jpg";
 
 export default function Logo({ size = "normal", onClick }) {
   return (
