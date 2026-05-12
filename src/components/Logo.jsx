@@ -1,7 +1,7 @@
 import "./Logo.css";
 
 // Reemplaza este src con tu imagen de logo personalizada
-const LOGO_IMG = "./public/logo.png";
+const LOGO_IMG = "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80";
 
 export default function Logo({ size = "normal", onClick }) {
   return (
