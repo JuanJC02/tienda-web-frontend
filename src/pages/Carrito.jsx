@@ -88,7 +88,7 @@ export default function Carrito({ setPage }) {
         <div className="confirmado">
           <div className="confirmado-icon">🎉</div>
           <h2>¡Pedido confirmado!</h2>
-          <p>Tu pedido llegará en aproximadamente <b>30–45 minutos</b>.</p>
+          <p>Tu pedido se enviará <b>para aceptación</b>.</p>
           <div className="confirmado-num">{orderId}</div>
           <p className="confirmado-hint">Puedes ver tu historial de compras en <b>Mi Perfil</b>. Cada 2 pedidos ganas un giro de ruleta 🎡</p>
           <div className="confirmado-actions">
