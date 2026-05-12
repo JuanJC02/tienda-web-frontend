@@ -142,7 +142,7 @@ export default function Home({ setPage }) {
           </div>
         </div>
         <div className="footer-bottom">
-          <p>© 2025 La Empanadería · Hecho con ❤️ en Medellín, Colombia</p>
+          <p>© 2025 Empanaderia de MiMis · Hecho con ❤️ en Medellín, Colombia</p>
         </div>
       </footer>
     </main>
