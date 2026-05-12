@@ -41,7 +41,7 @@ export default function Home({ setPage }) {
 
         <div className="hero-visual">
           <div className="hero-img-wrap">
-            <img src="https://images.unsplash.com/photo-1604467794349-0b74285de7e7?w=600&q=80" alt="Empanadas colombianas" className="hero-img" />
+            <img src="https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80" alt="Empanadas colombianas" className="hero-img" />
             <div className="hero-float-card">
               <span>🔥</span>
               <div><b>Recién horneadas</b><small>Listas en 20 min</small></div>
@@ -74,8 +74,8 @@ export default function Home({ setPage }) {
             </div>
           </div>
           <div className="quienes-imgs">
-            <img src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=500&q=80" alt="Cocina" className="q-img q-img-big" />
-            <img src="https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=300&q=80" alt="Empanadas" className="q-img q-img-sm" />
+            <img src="https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80" alt="Cocina" className="q-img q-img-big" />
+            <img src="https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80" alt="Empanadas" className="q-img q-img-sm" />
           </div>
         </div>
       </section>

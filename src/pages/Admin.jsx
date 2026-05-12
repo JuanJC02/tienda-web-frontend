@@ -3,7 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useProductos } from "../context/ProductosContext";
 import "./Admin.css";
 
-const DEFAULT_IMG = "https://images.unsplash.com/photo-1604467794349-0b74285de7e7?w=400&q=80";
+const DEFAULT_IMG = "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80";
 const ROLES = ["cliente", "administrador"];
 const CATEGORIAS = ["saladas", "dulces", "especiales"];
 const BADGE_TYPES = ["gold", "red", "green"];
