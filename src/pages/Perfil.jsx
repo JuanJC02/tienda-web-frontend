@@ -135,7 +135,7 @@ export default function Perfil({ setPage }) {
                     )}
                     <div className="pedido-footer">
                       <span>📍 {p.ciudad} — {p.direccion}</span>
-                      <span className="badge badge-green">Entregado</span>
+                      <span className="badge badge-green">Pendiente</span>
                     </div>
                   </div>
                 ))}
