@@ -9,7 +9,7 @@ import Perfil from "./pages/Perfil";
 import Galeria from "./pages/Galeria";
 import CreadorEmpanada from "./pages/CreadorEmpanada";
 import Admin from "./pages/Admin";
-import { CartProvider } from "./context/CartContext";
+import { CartProvider, useCart } from "./context/CartContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { GaleriaProvider } from "./context/GaleriaContext";
 import { ProductosProvider } from "./context/ProductosContext";
@@ -17,18 +17,31 @@ import "./index.css";
 
 function AppInner() {
   const [page, setPage] = useState("login");
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const { clearCart } = useCart();
 
   useEffect(() => {
-    if (!user) setPage("login");
-  }, [user]);
+    if (!user && !loading) {
+      clearCart();       // ← limpia el carrito al cerrar sesión
+      setPage("login");
+    }
+  }, [user, loading]);
 
   const navigate = (newPage) => {
     if (!user && newPage !== "login") return;
-    // Solo admins pueden ir a admin
     if (newPage === "admin" && user?.rol !== "administrador") return;
     setPage(newPage);
   };
+
+  // Pantalla de carga mientras Firebase verifica la sesión
+  if (loading) {
+    return (
+      <div className="app-loading">
+        <div className="app-loading-spinner" />
+        <p>Cargando…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app">

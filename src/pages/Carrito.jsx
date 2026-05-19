@@ -3,11 +3,22 @@ import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import "./Carrito.css";
 
+// ── Cambia este número por el WhatsApp del negocio (sin +, sin espacios) ──
+const WHATSAPP_NUMBER = "573001234567";
+
 const METODOS_PAGO = [
-  { id: "tarjeta",  label: "Tarjeta de crédito/débito", icon: "💳" },
-  { id: "nequi",   label: "Nequi / Daviplata",          icon: "📱" },
-  { id: "efectivo",label: "Efectivo en entrega",         icon: "💵" },
-  { id: "pse",     label: "PSE – Transferencia",         icon: "🏦" },
+  {
+    id: "efectivo",
+    label: "Efectivo al repartidor",
+    icon: "💵",
+    desc: "Paga en efectivo cuando llegue tu pedido.",
+  },
+  {
+    id: "whatsapp",
+    label: "Pago por WhatsApp",
+    icon: "💬",
+    desc: "Te enviamos los detalles de pago por WhatsApp antes de la entrega.",
+  },
 ];
 
 function genOrderId() {
@@ -19,7 +30,7 @@ export default function Carrito({ setPage }) {
   const { user, useCodigo, addPedido } = useAuth();
 
   const [step, setStep] = useState("carrito");
-  const [metodoPago, setMetodoPago] = useState("nequi");
+  const [metodoPago, setMetodoPago] = useState("efectivo");
   const [form, setForm] = useState({ nombre: "", telefono: "", direccion: "", ciudad: "", notas: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -27,7 +38,7 @@ export default function Carrito({ setPage }) {
 
   // Código de descuento
   const [codigoInput, setCodigoInput] = useState("");
-  const [codigoAplicado, setCodigoAplicado] = useState(null); // { codigo, porcentaje }
+  const [codigoAplicado, setCodigoAplicado] = useState(null);
   const [codigoError, setCodigoError] = useState("");
 
   const envio = total > 50000 ? 0 : 4500;
@@ -41,7 +52,6 @@ export default function Carrito({ setPage }) {
     const found = user?.codigos?.find((c) => c.codigo === trimmed);
     if (!found) { setCodigoError("Código inválido o no disponible"); return; }
     setCodigoAplicado(found);
-    setCodigoError("");
   };
 
   const quitarCodigo = () => { setCodigoAplicado(null); setCodigoInput(""); setCodigoError(""); };
@@ -61,21 +71,30 @@ export default function Carrito({ setPage }) {
     setErrors(e);
     if (Object.keys(e).length > 0) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
+    await new Promise((r) => setTimeout(r, 1200));
     const id = genOrderId();
     setOrderId(id);
-    // Guardar pedido en la cuenta del usuario
-    addPedido({
+    await addPedido({
       id,
       fecha: new Date().toLocaleDateString("es-CO"),
       items: items.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, precio: i.precio })),
       total: totalFinal,
+      metodoPago,
       descuento: codigoAplicado ? `${codigoAplicado.porcentaje}% (${codigoAplicado.codigo})` : null,
       direccion: form.direccion,
       ciudad: form.ciudad,
     });
-    // Usar y eliminar el código
-    if (codigoAplicado) useCodigo(codigoAplicado.codigo);
+    if (codigoAplicado) await useCodigo(codigoAplicado.codigo);
+
+    // Si eligió WhatsApp, abrir chat con el resumen del pedido
+    if (metodoPago === "whatsapp") {
+      const resumen = items.map((i) => `• ${i.cantidad}x ${i.nombre}`).join("\n");
+      const msg = encodeURIComponent(
+        `Hola! Quiero hacer un pedido 🫓\n\n${resumen}\n\nTotal: $${totalFinal.toLocaleString("es-CO")}\nDirección: ${form.direccion}, ${form.ciudad}\nPedido: ${id}`
+      );
+      window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, "_blank");
+    }
+
     clearCart();
     setLoading(false);
     setStep("confirmado");
@@ -86,14 +105,18 @@ export default function Carrito({ setPage }) {
     return (
       <main className="carrito-page">
         <div className="confirmado">
-          <div className="confirmado-icon">🎉</div>
+          <div className="confirmado-icon">{metodoPago === "whatsapp" ? "💬" : "🎉"}</div>
           <h2>¡Pedido confirmado!</h2>
-          <p>Tu pedido se enviará <b>para aceptación</b>.</p>
+          {metodoPago === "whatsapp" ? (
+            <p>Se abrió WhatsApp con el resumen de tu pedido. Envía el mensaje para coordinar el pago y la entrega.</p>
+          ) : (
+            <p>Tu pedido llegará en aproximadamente <b>30–45 minutos</b>. Paga en efectivo al repartidor.</p>
+          )}
           <div className="confirmado-num">{orderId}</div>
-          <p className="confirmado-hint">Puedes ver tu historial de compras en <b>Mi Perfil</b>. Cada 2 pedidos ganas un giro de ruleta 🎡</p>
+          <p className="confirmado-hint">Puedes ver tu historial de compras en <b>Mi Perfil</b>.</p>
           <div className="confirmado-actions">
             <button className="btn-primary" onClick={() => { setStep("carrito"); setPage("home"); }}>Volver al inicio</button>
-            <button className="btn-outline" onClick={() => { setStep("carrito"); setPage("ruleta"); }}>Ir a la Ruleta 🎡</button>
+            <button className="btn-outline" onClick={() => { setStep("carrito"); setPage("catalogo"); }}>Seguir comprando</button>
           </div>
         </div>
       </main>
@@ -115,7 +138,7 @@ export default function Carrito({ setPage }) {
       </div>
 
       <div className="carrito-body">
-        {/* ── STEP 1: CARRITO ── */}
+        {/* ── STEP 1 ── */}
         {step === "carrito" && (
           <div className="carrito-layout">
             <div className="carrito-items">
@@ -177,7 +200,7 @@ export default function Carrito({ setPage }) {
           </div>
         )}
 
-        {/* ── STEP 2: CHECKOUT ── */}
+        {/* ── STEP 2 ── */}
         {step === "checkout" && (
           <div className="carrito-layout">
             <div className="checkout-form">
@@ -185,10 +208,10 @@ export default function Carrito({ setPage }) {
 
               <div className="checkout-fields">
                 {[
-                  { name: "nombre",    label: "Nombre completo",      placeholder: "Tu nombre" },
-                  { name: "telefono",  label: "Celular",               placeholder: "300 000 0000" },
-                  { name: "direccion", label: "Dirección de entrega",  placeholder: "Cra 43A #1-50, Apto 301" },
-                  { name: "ciudad",    label: "Ciudad",                placeholder: "Medellín" },
+                  { name: "nombre",    label: "Nombre completo",     placeholder: "Tu nombre" },
+                  { name: "telefono",  label: "Celular",              placeholder: "300 000 0000" },
+                  { name: "direccion", label: "Dirección de entrega", placeholder: "Cra 43A #1-50, Apto 301" },
+                  { name: "ciudad",    label: "Ciudad",               placeholder: "Medellín" },
                 ].map((f) => (
                   <div className="field" key={f.name}>
                     <label className="field-label">{f.label}</label>
@@ -208,27 +231,20 @@ export default function Carrito({ setPage }) {
                 </div>
               </div>
 
-              {/* ── CÓDIGO DE DESCUENTO ── */}
+              {/* Código de descuento */}
               <div className="descuento-section">
                 <h3>Código de descuento</h3>
                 {codigoAplicado ? (
                   <div className="codigo-aplicado">
-                    <span>✅ <b>{codigoAplicado.codigo}</b> — {codigoAplicado.porcentaje}% de descuento aplicado</span>
+                    <span>✅ <b>{codigoAplicado.codigo}</b> — {codigoAplicado.porcentaje}% aplicado</span>
                     <button className="quitar-codigo" onClick={quitarCodigo}>✕ Quitar</button>
                   </div>
                 ) : (
                   <div className="codigo-input-wrap">
-                    <input
-                      type="text"
-                      className="field-input codigo-input"
-                      placeholder="EMP10-XXXXX"
-                      value={codigoInput}
+                    <input type="text" className="field-input codigo-input" placeholder="EMP10-XXXXX" value={codigoInput}
                       onChange={(e) => { setCodigoInput(e.target.value.toUpperCase()); setCodigoError(""); }}
-                      onKeyDown={(e) => e.key === "Enter" && aplicarCodigo()}
-                    />
-                    <button className="btn-outline" onClick={aplicarCodigo} style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>
-                      Aplicar
-                    </button>
+                      onKeyDown={(e) => e.key === "Enter" && aplicarCodigo()} />
+                    <button className="btn-outline" onClick={aplicarCodigo} style={{ padding: "12px 18px", whiteSpace: "nowrap" }}>Aplicar</button>
                   </div>
                 )}
                 {codigoError && <span className="field-error">⚠ {codigoError}</span>}
@@ -237,7 +253,7 @@ export default function Carrito({ setPage }) {
                     <small>Tus códigos disponibles:</small>
                     <div className="codigos-chips">
                       {user.codigos.map((c) => (
-                        <button key={c.codigo} className="codigo-chip" onClick={() => { setCodigoInput(c.codigo); }}>
+                        <button key={c.codigo} className="codigo-chip" onClick={() => setCodigoInput(c.codigo)}>
                           {c.codigo} ({c.porcentaje}%)
                         </button>
                       ))}
@@ -254,7 +270,10 @@ export default function Carrito({ setPage }) {
                     <label key={m.id} className={`metodo-card ${metodoPago === m.id ? "selected" : ""}`}>
                       <input type="radio" name="pago" value={m.id} checked={metodoPago === m.id} onChange={() => setMetodoPago(m.id)} style={{ display: "none" }} />
                       <span className="metodo-icon">{m.icon}</span>
-                      <span className="metodo-label">{m.label}</span>
+                      <div className="metodo-texto">
+                        <span className="metodo-label">{m.label}</span>
+                        <span className="metodo-desc">{m.desc}</span>
+                      </div>
                       {metodoPago === m.id && <span className="metodo-check">✓</span>}
                     </label>
                   ))}
@@ -264,7 +283,9 @@ export default function Carrito({ setPage }) {
               <div className="checkout-btns">
                 <button className="btn-outline" onClick={() => setStep("carrito")}>← Volver</button>
                 <button className="btn-primary" style={{ flex: 1, padding: "16px" }} onClick={handlePedido} disabled={loading}>
-                  {loading ? "⏳ Procesando..." : `Confirmar · $${totalFinal.toLocaleString("es-CO")}`}
+                  {loading ? "⏳ Procesando..." : metodoPago === "whatsapp"
+                    ? `💬 Confirmar y abrir WhatsApp · $${totalFinal.toLocaleString("es-CO")}`
+                    : `Confirmar pedido · $${totalFinal.toLocaleString("es-CO")}`}
                 </button>
               </div>
             </div>

@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper: verifica si el usuario autenticado es administrador ──
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == "administrador";
+    }
+
+    // ── Helper: verifica si el usuario está autenticado ──
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ── USUARIOS ──
+    // Cada usuario lee y edita solo su propio documento.
+    // Los admins pueden leer, editar y borrar cualquier usuario.
+    match /usuarios/{userId} {
+      allow read:   if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAuth(); // el registro crea el propio documento
+      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ── PRODUCTOS ──
+    // Cualquier usuario autenticado puede leer.
+    // Solo admins pueden crear, editar o borrar.
+    match /productos/{productoId} {
+      allow read:  if isAuth();
+      allow write: if isAdmin();
+    }
+
+    // ── FOTOS (Galería) ──
+    // Todos los autenticados leen y crean.
+    // Update es libre para todos (necesario para likes).
+    // Solo el dueño o un admin puede borrar.
+    match /fotos/{fotoId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth(); // likes pueden venir de cualquier usuario
+      allow delete: if isAuth() &&
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+
+    // ── CONFIGURACIÓN (timer de galería) ──
+    // Todos los autenticados leen y escriben
+    // (cualquier usuario puede iniciar la competencia al subir la primera foto).
+    match /configuracion/{docId} {
+      allow read:  if isAuth();
+      allow write: if isAuth();
+    }
+  }
+}

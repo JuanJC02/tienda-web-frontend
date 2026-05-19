@@ -1,159 +1,188 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
+import {
+  doc, setDoc, onSnapshot, updateDoc, deleteDoc,
+  collection, query, getDoc,
+} from "firebase/firestore";
+import { auth, db } from "../firebase/config";
 
 const AuthContext = createContext();
 
-const INITIAL_USERS = [
-  {
-    id: 1,
-    nombre: "Usuario Demo",
-    email: "demo@empanaderia.com",
-    password: "demo123",
-    rol: "administrador",
-    pedidos: [],
-    codigos: [],
-    spinsAvailable: 1,
-    lastSpinTime: null,
-  },
-];
-
 export function AuthProvider({ children }) {
-  const [users, setUsers] = useState(INITIAL_USERS);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [intentos, setIntentos] = useState(0);
+  const [user, setUser]           = useState(null);
+  const [loading, setLoading]     = useState(true);
+  const [allUsers, setAllUsers]   = useState([]);
+  const [intentos, setIntentos]   = useState(0);
   const [bloqueadoHasta, setBloqueadoHasta] = useState(null);
 
-  const user = users.find((u) => u.id === currentUserId) || null;
+  /* ── Escucha sesión Firebase + datos Firestore ── */
+  useEffect(() => {
+    let unsubDoc = null;
+    const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
+      if (unsubDoc) unsubDoc();
+      if (fbUser) {
+        unsubDoc = onSnapshot(doc(db, "usuarios", fbUser.uid), (snap) => {
+          if (snap.exists()) {
+            setUser({ uid: fbUser.uid, email: fbUser.email, ...snap.data() });
+          }
+          setLoading(false);
+        });
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
+    return () => { unsubAuth(); if (unsubDoc) unsubDoc(); };
+  }, []);
 
-  const register = (nombre, email, password) => {
-    if (users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())) {
-      return { ok: false, error: "Este correo ya está registrado." };
+  /* ── Carga usuarios para admins ── */
+  useEffect(() => {
+    if (user?.rol !== "administrador") { setAllUsers([]); return; }
+    const unsub = onSnapshot(query(collection(db, "usuarios")), (snap) => {
+      setAllUsers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [user?.rol]);
+
+  /* ── Registro ── */
+  const register = async (nombre, email, password) => {
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      await setDoc(doc(db, "usuarios", cred.user.uid), {
+        nombre: nombre.trim(),
+        email: email.trim().toLowerCase(),
+        rol: "cliente",
+        pedidos: [],
+        codigos: [],
+        spinsAvailable: 1,
+        lastSpinTime: null,
+        createdAt: Date.now(),
+      });
+      return { ok: true };
+    } catch (err) {
+      if (err.code === "auth/email-already-in-use")
+        return { ok: false, error: "Este correo ya está registrado." };
+      return { ok: false, error: "Error al crear la cuenta." };
     }
-    const newUser = {
-      id: Date.now(),
-      nombre: nombre.trim(),
-      email: email.trim().toLowerCase(),
-      password,
-      rol: "cliente",
-      pedidos: [],
-      codigos: [],
-      spinsAvailable: 1,
-      lastSpinTime: null,
-    };
-    setUsers((prev) => [...prev, newUser]);
-    return { ok: true };
   };
 
-  const login = (email, password) => {
+  /* ── Login ── */
+  const login = async (email, password) => {
     if (bloqueadoHasta && new Date() < bloqueadoHasta) {
       const seg = Math.ceil((bloqueadoHasta - new Date()) / 1000);
-      return { ok: false, error: `Cuenta bloqueada. Intenta en ${seg}s.`, bloqueado: true };
+      return { ok: false, error: `Bloqueado. Intenta en ${seg}s.`, bloqueado: true };
     }
-    const found = users.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-    );
-    if (found) {
-      setCurrentUserId(found.id);
-      setIntentos(0);
-      setBloqueadoHasta(null);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      setIntentos(0); setBloqueadoHasta(null);
       return { ok: true };
+    } catch {
+      const n = intentos + 1; setIntentos(n);
+      if (n >= 3) {
+        setBloqueadoHasta(new Date(Date.now() + 30000));
+        setIntentos(0);
+        return { ok: false, error: "3 intentos fallidos. Bloqueado 30s.", bloqueado: true };
+      }
+      return { ok: false, error: `Credenciales incorrectas. Intento ${n}/3`, bloqueado: false };
     }
-    const newIntentos = intentos + 1;
-    setIntentos(newIntentos);
-    if (newIntentos >= 3) {
-      setBloqueadoHasta(new Date(Date.now() + 30000));
-      setIntentos(0);
-      return { ok: false, error: "3 intentos fallidos. Bloqueado 30s.", bloqueado: true };
-    }
-    return { ok: false, error: `Credenciales incorrectas. Intento ${newIntentos}/3`, bloqueado: false };
   };
 
-  const logout = () => { setCurrentUserId(null); setIntentos(0); };
-
-  /* ── Admin: gestión de usuarios ── */
-  const adminCreateUser = (datos) => {
-    if (users.find((u) => u.email.toLowerCase() === datos.email.trim().toLowerCase())) {
-      return { ok: false, error: "Ese correo ya existe." };
-    }
-    const newUser = {
-      id: Date.now(),
-      nombre: datos.nombre.trim(),
-      email: datos.email.trim().toLowerCase(),
-      password: datos.password,
-      rol: datos.rol || "cliente",
-      pedidos: [],
-      codigos: [],
-      spinsAvailable: 1,
-      lastSpinTime: null,
-    };
-    setUsers((prev) => [...prev, newUser]);
-    return { ok: true };
-  };
-
-  const adminUpdateUser = (id, datos) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === id ? { ...u, ...datos } : u))
-    );
-  };
-
-  const adminDeleteUser = (id) => {
-    setUsers((prev) => prev.filter((u) => u.id !== id));
-  };
+  const logout = () => signOut(auth);
 
   /* ── Pedidos ── */
-  const addPedido = (pedido) => {
-    setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== currentUserId) return u;
-        const newPedidos = [...u.pedidos, pedido];
-        const prevSpins = Math.floor(u.pedidos.length / 2);
-        const newSpins = Math.floor(newPedidos.length / 2);
-        return { ...u, pedidos: newPedidos, spinsAvailable: u.spinsAvailable + (newSpins - prevSpins) };
-      })
-    );
+  const addPedido = async (pedido) => {
+    if (!user) return;
+    const ref  = doc(db, "usuarios", user.uid);
+    const snap = await getDoc(ref);
+    const data = snap.data();
+    const newPedidos = [...(data.pedidos || []), pedido];
+    const prevSpins  = Math.floor((data.pedidos || []).length / 2);
+    const newSpins   = Math.floor(newPedidos.length / 2);
+    await updateDoc(ref, {
+      pedidos: newPedidos,
+      spinsAvailable: (data.spinsAvailable || 0) + (newSpins - prevSpins),
+    });
   };
 
-  const addCodigo = (codigo) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === currentUserId ? { ...u, codigos: [...u.codigos, codigo] } : u))
-    );
+  /* ── Códigos de descuento ── */
+  const addCodigo = async (codigo) => {
+    if (!user) return;
+    const ref  = doc(db, "usuarios", user.uid);
+    const snap = await getDoc(ref);
+    const codigos = snap.data().codigos || [];
+    await updateDoc(ref, { codigos: [...codigos, codigo] });
   };
 
-  const addCodigoToUser = (userId, codigo) => {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, codigos: [...u.codigos, codigo] } : u))
-    );
+  const addCodigoToUser = async (userId, codigo) => {
+    const ref  = doc(db, "usuarios", userId);
+    const snap = await getDoc(ref);
+    const codigos = snap.data()?.codigos || [];
+    await updateDoc(ref, { codigos: [...codigos, codigo] });
   };
 
-  const useCodigo = (codigoStr) => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === currentUserId
-          ? { ...u, codigos: u.codigos.filter((c) => c.codigo !== codigoStr) }
-          : u
-      )
-    );
+  const useCodigo = async (codigoStr) => {
+    if (!user) return;
+    const ref  = doc(db, "usuarios", user.uid);
+    const snap = await getDoc(ref);
+    const codigos = snap.data().codigos || [];
+    await updateDoc(ref, { codigos: codigos.filter((c) => c.codigo !== codigoStr) });
   };
 
-  const useSpin = () => {
-    setUsers((prev) =>
-      prev.map((u) =>
-        u.id === currentUserId
-          ? { ...u, spinsAvailable: Math.max(0, u.spinsAvailable - 1), lastSpinTime: Date.now() }
-          : u
-      )
-    );
+  /* ── Ruleta ── */
+  const useSpin = async () => {
+    if (!user) return;
+    await updateDoc(doc(db, "usuarios", user.uid), {
+      spinsAvailable: Math.max(0, (user.spinsAvailable || 0) - 1),
+      lastSpinTime: Date.now(),
+    });
+  };
+
+  /* ── Admin: gestión de usuarios ── */
+  const adminCreateUser = async (datos) => {
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, datos.email.trim(), datos.password);
+      await setDoc(doc(db, "usuarios", cred.user.uid), {
+        nombre: datos.nombre.trim(),
+        email: datos.email.trim().toLowerCase(),
+        rol: datos.rol || "cliente",
+        pedidos: [],
+        codigos: [],
+        spinsAvailable: 1,
+        lastSpinTime: null,
+        createdAt: Date.now(),
+      });
+      return { ok: true };
+    } catch (err) {
+      if (err.code === "auth/email-already-in-use")
+        return { ok: false, error: "Ese correo ya existe." };
+      return { ok: false, error: "Error al crear usuario." };
+    }
+  };
+
+  const adminUpdateUser = async (uid, datos) => {
+    await updateDoc(doc(db, "usuarios", uid), datos);
+  };
+
+  /* Nota: esto elimina el perfil de Firestore pero NO la cuenta de Firebase Auth.
+     El usuario no verá su perfil pero técnicamente aún podría iniciar sesión.
+     Para borrado completo se requiere Firebase Admin SDK en un servidor. */
+  const adminDeleteUser = async (uid) => {
+    await deleteDoc(doc(db, "usuarios", uid));
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user, users,
-        register, login, logout,
-        adminCreateUser, adminUpdateUser, adminDeleteUser,
-        addPedido, addCodigo, addCodigoToUser, useCodigo, useSpin,
-        intentos, bloqueadoHasta,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, users: allUsers, loading,
+      register, login, logout,
+      adminCreateUser, adminUpdateUser, adminDeleteUser,
+      addPedido, addCodigo, addCodigoToUser, useCodigo, useSpin,
+      intentos, bloqueadoHasta,
+    }}>
       {children}
     </AuthContext.Provider>
   );
