@@ -5,8 +5,6 @@ import "./Admin.css";
 
 const DEFAULT_IMG = "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=400&q=80";
 const ROLES = ["cliente", "administrador"];
-const CATEGORIAS = ["saladas", "dulces", "especiales"];
-const BADGE_TYPES = ["gold", "red", "green"];
 
 /* ── Formulario vacío de producto ── */
 const emptyProducto = () => ({
@@ -23,24 +21,24 @@ export default function Admin({ setPage }) {
   const { user, users, adminCreateUser, adminUpdateUser, adminDeleteUser } = useAuth();
   const { productos, addProducto, updateProducto, deleteProducto } = useProductos();
 
-  const [tab, setTab] = useState("usuarios"); // usuarios | catalogo
+  const [tab, setTab] = useState("usuarios");
 
   /* ── Estado Usuarios ── */
-  const [editingUser, setEditingUser] = useState(null); // id del usuario en edición
+  const [editingUser, setEditingUser] = useState(null); // uid del usuario en edición
   const [editUserForm, setEditUserForm] = useState({});
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [createUserForm, setCreateUserForm] = useState(emptyUser());
   const [userMsg, setUserMsg] = useState({ text: "", tipo: "" });
 
   /* ── Estado Productos ── */
-  const [editingProd, setEditingProd] = useState(null); // id del producto en edición
+  const [editingProd, setEditingProd] = useState(null);
   const [editProdForm, setEditProdForm] = useState({});
   const [showCreateProd, setShowCreateProd] = useState(false);
   const [createProdForm, setCreateProdForm] = useState(emptyProducto());
   const [prodMsg, setProdMsg] = useState({ text: "", tipo: "" });
 
   const fileRefCreate = useRef(null);
-  const fileRefEdit = useRef(null);
+  const fileRefEdit   = useRef(null);
 
   /* ─────────────────── HELPERS ─────────────────── */
   const showMsg = (setter, text, tipo = "ok") => {
@@ -48,44 +46,48 @@ export default function Admin({ setPage }) {
     setTimeout(() => setter({ text: "", tipo: "" }), 3000);
   };
 
-  const readImage = (file, cb) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) { cb(null, "Solo imágenes"); return; }
-    if (file.size > 5 * 1024 * 1024) { cb(null, "Máximo 5 MB"); return; }
-    const r = new FileReader();
-    r.onload = (e) => cb(e.target.result, null);
-    r.readAsDataURL(file);
-  };
-
   /* ─────────────────── USUARIOS ─────────────────── */
+
+  // FIX: usar u.uid (no u.id) — Firebase retorna uid como propiedad uid
   const startEditUser = (u) => {
-    setEditingUser(u.id);
-    setEditUserForm({ nombre: u.nombre, email: u.email, password: u.password, rol: u.rol });
+    setEditingUser(u.uid);
+    // FIX: la contraseña NO existe en Firestore (Firebase Auth la gestiona).
+    // Dejamos el campo vacío con placeholder informativo.
+    setEditUserForm({ nombre: u.nombre, email: u.email, rol: u.rol });
     setShowCreateUser(false);
   };
 
-  const saveEditUser = () => {
-    if (!editUserForm.nombre || !editUserForm.email || !editUserForm.password) {
-      showMsg(setUserMsg, "Completa todos los campos.", "err"); return;
+  const saveEditUser = async () => {
+    // FIX: nombre, email y rol son obligatorios; contraseña NO (Firebase Auth la gestiona)
+    if (!editUserForm.nombre || !editUserForm.email) {
+      showMsg(setUserMsg, "Nombre y email son obligatorios.", "err"); return;
     }
-    adminUpdateUser(editingUser, editUserForm);
+    // FIX: solo enviamos los campos que existen en Firestore; nunca password
+    await adminUpdateUser(editingUser, {
+      nombre: editUserForm.nombre.trim(),
+      email:  editUserForm.email.trim().toLowerCase(),
+      rol:    editUserForm.rol,
+    });
     setEditingUser(null);
     showMsg(setUserMsg, "Usuario actualizado correctamente.");
   };
 
+  // FIX: usar u.uid para comparar y para eliminar
   const handleDeleteUser = (u) => {
-    if (u.id === user.id) { showMsg(setUserMsg, "No puedes eliminarte a ti mismo.", "err"); return; }
+    if (u.uid === user.uid) {
+      showMsg(setUserMsg, "No puedes eliminarte a ti mismo.", "err"); return;
+    }
     if (window.confirm(`¿Eliminar a ${u.nombre}?`)) {
-      adminDeleteUser(u.id);
+      adminDeleteUser(u.uid);
       showMsg(setUserMsg, `${u.nombre} eliminado.`);
     }
   };
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     if (!createUserForm.nombre || !createUserForm.email || !createUserForm.password) {
       showMsg(setUserMsg, "Completa todos los campos.", "err"); return;
     }
-    const result = adminCreateUser(createUserForm);
+    const result = await adminCreateUser(createUserForm);
     if (!result.ok) { showMsg(setUserMsg, result.error, "err"); return; }
     setCreateUserForm(emptyUser());
     setShowCreateUser(false);
@@ -105,9 +107,9 @@ export default function Admin({ setPage }) {
     }
     updateProducto(editingProd, {
       ...editProdForm,
-      precio: Number(editProdForm.precio),
-      imagen: editProdForm.imagen || DEFAULT_IMG,
-      badge: editProdForm.badge || null,
+      precio:    Number(editProdForm.precio),
+      imagen:    editProdForm.imagen || DEFAULT_IMG,
+      badge:     editProdForm.badge || null,
       badgeType: editProdForm.badge ? editProdForm.badgeType : null,
     });
     setEditingProd(null);
@@ -120,9 +122,9 @@ export default function Admin({ setPage }) {
     }
     addProducto({
       ...createProdForm,
-      precio: Number(createProdForm.precio),
-      imagen: createProdForm.imagen || DEFAULT_IMG,
-      badge: createProdForm.badge || null,
+      precio:    Number(createProdForm.precio),
+      imagen:    createProdForm.imagen || DEFAULT_IMG,
+      badge:     createProdForm.badge || null,
       badgeType: createProdForm.badge ? createProdForm.badgeType : null,
     });
     setCreateProdForm(emptyProducto());
@@ -209,26 +211,35 @@ export default function Admin({ setPage }) {
             )}
 
             {/* Tabla de usuarios */}
+            {/* FIX: key={u.uid} — no u.id */}
             <div className="users-list">
               {users.map((u) => (
-                <div className="user-row" key={u.id}>
-                  {editingUser === u.id ? (
+                <div className="user-row" key={u.uid}>
+                  {/* FIX: comparar editingUser === u.uid — no u.id */}
+                  {editingUser === u.uid ? (
                     /* Formulario de edición inline */
                     <div className="user-edit-form">
                       <div className="admin-form-grid">
-                        {[
-                          { key: "nombre",   label: "Nombre",     type: "text"     },
-                          { key: "email",    label: "Email",      type: "email"    },
-                          { key: "password", label: "Contraseña", type: "password" },
-                        ].map((f) => (
-                          <div className="admin-field" key={f.key}>
-                            <label>{f.label}</label>
-                            <input type={f.type} value={editUserForm[f.key]}
-                              onChange={(e) => setEditUserForm((p) => ({ ...p, [f.key]: e.target.value }))} />
-                          </div>
-                        ))}
+                        <div className="admin-field">
+                          <label>Nombre</label>
+                          <input type="text" value={editUserForm.nombre}
+                            onChange={(e) => setEditUserForm((p) => ({ ...p, nombre: e.target.value }))} />
+                        </div>
+                        <div className="admin-field">
+                          <label>Email</label>
+                          <input type="email" value={editUserForm.email}
+                            onChange={(e) => setEditUserForm((p) => ({ ...p, email: e.target.value }))} />
+                        </div>
+                        {/* FIX: contraseña no se muestra — Firebase Auth la gestiona,
+                            no se almacena en Firestore ni es accesible desde el frontend */}
+                        <div className="admin-field">
+                          <label>Contraseña</label>
+                          <input type="password" disabled placeholder="••••••••  (gestionada por Firebase Auth)"
+                            style={{ opacity: 0.45, cursor: "not-allowed" }} />
+                        </div>
                         <div className="admin-field">
                           <label>Rol</label>
+                          {/* FIX: cada select tiene su propio valor del form local, no del objeto u */}
                           <select value={editUserForm.rol}
                             onChange={(e) => setEditUserForm((p) => ({ ...p, rol: e.target.value }))}>
                             {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -243,23 +254,25 @@ export default function Admin({ setPage }) {
                   ) : (
                     /* Vista normal */
                     <>
-                      <div className="user-avatar">{u.nombre.charAt(0).toUpperCase()}</div>
+                      <div className="user-avatar">{u.nombre?.charAt(0).toUpperCase()}</div>
                       <div className="user-info">
                         <div className="user-name">
                           {u.nombre}
-                          {u.id === user.id && <span className="badge badge-gold" style={{ fontSize: "0.62rem", marginLeft: 6 }}>Tú</span>}
+                          {/* FIX: comparar con user.uid — no user.id */}
+                          {u.uid === user.uid && <span className="badge badge-gold" style={{ fontSize: "0.62rem", marginLeft: 6 }}>Tú</span>}
                         </div>
                         <div className="user-email">{u.email}</div>
                         <div className="user-meta">
                           <span className={`rol-chip ${u.rol === "administrador" ? "admin" : "cliente"}`}>
                             {u.rol === "administrador" ? "⚙️ Admin" : "👤 Cliente"}
                           </span>
-                          <span className="user-stat">🛒 {u.pedidos.length} pedidos</span>
-                          <span className="user-stat">🎟 {u.codigos.length} códigos</span>
+                          <span className="user-stat">🛒 {(u.pedidos || []).length} pedidos</span>
+                          <span className="user-stat">🎟 {(u.codigos || []).length} códigos</span>
                         </div>
                       </div>
                       <div className="user-actions">
                         <button className="action-btn edit" onClick={() => startEditUser(u)}>✏️ Editar</button>
+                        {/* FIX: pasar u completo para acceder a u.uid en handleDeleteUser */}
                         <button className="action-btn delete" onClick={() => handleDeleteUser(u)}>🗑 Eliminar</button>
                       </div>
                     </>
@@ -289,11 +302,7 @@ export default function Admin({ setPage }) {
             {showCreateProd && (
               <div className="admin-form-card">
                 <h3>Nueva empanada</h3>
-                <ProductoForm
-                  form={createProdForm}
-                  setForm={setCreateProdForm}
-                  fileRef={fileRefCreate}
-                />
+                <ProductoForm form={createProdForm} setForm={setCreateProdForm} fileRef={fileRefCreate} />
                 <div className="admin-form-actions">
                   <button className="btn-primary" onClick={handleCreateProd}>Agregar al catálogo</button>
                   <button className="btn-outline" onClick={() => setShowCreateProd(false)}>Cancelar</button>
@@ -308,11 +317,7 @@ export default function Admin({ setPage }) {
                   {editingProd === p.id ? (
                     <div className="prod-edit-form">
                       <h4>Editando: {p.nombre}</h4>
-                      <ProductoForm
-                        form={editProdForm}
-                        setForm={setEditProdForm}
-                        fileRef={fileRefEdit}
-                      />
+                      <ProductoForm form={editProdForm} setForm={setEditProdForm} fileRef={fileRefEdit} />
                       <div className="admin-form-actions">
                         <button className="btn-primary" onClick={saveEditProd}>Guardar cambios</button>
                         <button className="btn-outline" onClick={() => setEditingProd(null)}>Cancelar</button>
@@ -328,7 +333,7 @@ export default function Admin({ setPage }) {
                           <span className="prod-admin-price">${p.precio.toLocaleString("es-CO")}</span>
                           <span className="prod-admin-id">ID #{p.id}</span>
                         </div>
-                        <div className="prod-admin-desc">{p.descripcion.slice(0, 80)}…</div>
+                        <div className="prod-admin-desc">{p.descripcion?.slice(0, 80)}…</div>
                       </div>
                       <div className="user-actions">
                         <button className="action-btn edit" onClick={() => startEditProd(p)}>✏️ Editar</button>
@@ -365,15 +370,18 @@ function ProductoForm({ form, setForm, fileRef }) {
       <div className="admin-form-grid">
         <div className="admin-field span-2">
           <label>Nombre de la empanada *</label>
-          <input type="text" placeholder="Ej: Empanada de Pipián" value={form.nombre} onChange={(e) => set("nombre", e.target.value)} />
+          <input type="text" placeholder="Ej: Empanada de Pipián" value={form.nombre}
+            onChange={(e) => set("nombre", e.target.value)} />
         </div>
         <div className="admin-field span-2">
           <label>Descripción</label>
-          <textarea rows={2} placeholder="Ingredientes y características..." value={form.descripcion} onChange={(e) => set("descripcion", e.target.value)} />
+          <textarea rows={2} placeholder="Ingredientes y características..." value={form.descripcion}
+            onChange={(e) => set("descripcion", e.target.value)} />
         </div>
         <div className="admin-field">
           <label>Precio (COP) *</label>
-          <input type="number" min="0" placeholder="4500" value={form.precio} onChange={(e) => set("precio", e.target.value)} />
+          <input type="number" min="0" placeholder="4500" value={form.precio}
+            onChange={(e) => set("precio", e.target.value)} />
         </div>
         <div className="admin-field">
           <label>Categoría</label>
@@ -383,7 +391,8 @@ function ProductoForm({ form, setForm, fileRef }) {
         </div>
         <div className="admin-field">
           <label>Badge (opcional)</label>
-          <input type="text" placeholder="Ej: ⭐ Más vendida" value={form.badge || ""} onChange={(e) => set("badge", e.target.value)} />
+          <input type="text" placeholder="Ej: ⭐ Más vendida" value={form.badge || ""}
+            onChange={(e) => set("badge", e.target.value)} />
         </div>
         <div className="admin-field">
           <label>Color del badge</label>
